@@ -36,8 +36,15 @@ patch(AnalyticDistribution.prototype, {
             await this.refreshManualDistribution(new_manual_distribution_id);
         }
     },
+    get hasManualDistributionField() {
+        // The widget is also used on records whose analytic_distribution does
+        // not come from analytic.mixin (e.g. the bank statement line in the
+        // reconciliation of account_reconcile_oca): updating a field that is
+        // not in the view would crash the record.
+        return "manual_distribution_id" in this.props.record.fields;
+    },
     async save() {
-        if (!this.state_manual_distribution.id) {
+        if (!this.state_manual_distribution.id || !this.hasManualDistributionField) {
             return super.save();
         }
         // Send both fields in a single record.update() instead of calling
@@ -109,10 +116,11 @@ patch(AnalyticDistribution.prototype, {
         this.state_manual_distribution.analytic_distribution = [];
         // Clear all distribution
         this.state.formattedData = [];
-        this.props.record.update({
-            [this.props.name]: this.dataToJson(),
-            manual_distribution_id: false,
-        });
+        const changes = {[this.props.name]: this.dataToJson()};
+        if (this.hasManualDistributionField) {
+            changes.manual_distribution_id = false;
+        }
+        this.props.record.update(changes);
     },
     // Autocomplete
     sourcesAnalyticDistributionManual() {
